@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>운동일지 작성 - PT Manager</title>
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="design-system.css">
+    <style>
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-textarea-large {
+            min-height: 450px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        .bottom-actions {
+            position: sticky;
+            bottom: 0;
+            background-color: var(--bg-main);
+            padding: 1rem 0;
+            margin-top: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            gap: 0.75rem;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .exercise-table-compact {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: var(--font-size-sm);
+        }
+
+        .exercise-table-compact thead {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .exercise-table-compact th {
+            padding: 0.625rem 0.75rem;
+            text-align: center;
+            font-weight: var(--font-weight-semibold);
+        }
+
+        .exercise-table-compact td {
+            padding: 0.625rem 0.75rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .exercise-table-compact tbody tr:hover {
+            background-color: var(--bg-gray);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                        <path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                </div>
+                <div class="sidebar-title">
+                  <div class="sidebar-title-main">PT Manager</div>
+                  <div class="sidebar-title-sub">이윤창 트레이너의</div>
+                  <div class="sidebar-title-sub">맞춤형 회원 관리 시스템</div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="member-management.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87m-4-12a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    회원 관리
+                </a>
+                <a href="index.html" class="nav-item active">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                        <path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                    운동일지 작성
+                </a>
+                <a href="workout-history.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    운동일지 조회
+                </a>
+                <a href="ai-consultation.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    AI 상담
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                © 2025 이윤창 트레이너의 PT Manager
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <h1 class="page-title">운동일지 작성</h1>
+                    <p class="page-description">카카오톡 메시지를 그대로 복사해서 붙여넣으세요</p>
+                </div>
+
+                <!-- Two Column Layout -->
+                <div class="two-column-layout">
+                    <!-- Left Panel: Input -->
+                    <div>
+                        <div class="card">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">회원 선택 <span class="required">*</span></label>
+                                    <select id="memberSelect" class="form-select">
+                                        <option value="">회원을 선택하세요</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">날짜 <span class="required">*</span></label>
+                                    <input type="date" id="dateInput" class="form-input">
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">운동일지 내용 <span class="required">*</span></label>
+                                <textarea id="logInput" class="form-textarea form-textarea-large"
+                                    placeholder="☑️ 아침에 일어나니, 팔꿈치 안쪽 불편감 발생
+
+📌오늘의 운동
+1. 숄더 프레스 (15kg x 12회, 25kg x 12회) - 4세트
+
+💬 코멘트
+어깨 힘이 좋아지셨습니다.
+
+📍 링크
+누워서 하는 동작
+https://youtube.com/shorts/..."></textarea>
+                                <p style="margin-top: 0.5rem; font-size: var(--font-size-xs); color: var(--text-muted);">💡 카카오톡 메시지를 그대로 복사해서 붙여넣으세요</p>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Actions -->
+                        <div class="bottom-actions">
+                            <button id="resetButton" class="btn btn-secondary">초기화</button>
+                            <div style="display: flex; gap: 0.75rem;">
+                                <button id="previewButton" class="btn btn-secondary">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    미리보기
+                                </button>
+                                <button id="saveButton" class="btn btn-primary" disabled>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                    </svg>
+                                    운동일지 저장
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Panel: Preview -->
+                    <div class="preview-panel">
+                        <div class="card">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <h3>미리보기</h3>
+                            </div>
+                            <div id="result">
+                                <div class="preview-empty">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                    </svg>
+                                    <p>운동일지 내용을 입력하면</p>
+                                    <p>미리보기가 표시됩니다</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Help Button -->
+        <button class="help-button" title="도움말">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+        </button>
+    </div>
+
+    <script src="workout-log.js"></script>
+</body>
+</html>

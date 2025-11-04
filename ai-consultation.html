@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 상담 - PT Manager</title>
+    <script src="config.js"></script>
+    <script src="ai-system-prompt.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="design-system.css">
+    <style>
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 320px);
+            min-height: 400px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            background-color: var(--bg-white);
+            border-radius: var(--radius-lg);
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-light);
+        }
+
+        .chat-message {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-message.user {
+            flex-direction: row-reverse;
+        }
+
+        .chat-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: var(--font-size-sm);
+        }
+
+        .chat-avatar.ai {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .chat-avatar.user {
+            background-color: var(--text-secondary);
+            color: white;
+        }
+
+        .chat-bubble {
+            max-width: 70%;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-lg);
+            font-size: var(--font-size-sm);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .chat-message.ai .chat-bubble {
+            background-color: var(--bg-gray);
+            color: var(--text-primary);
+        }
+
+        .chat-message.user .chat-bubble {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .chat-input-container {
+            background-color: var(--bg-white);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+            padding: 1rem;
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+        }
+
+        .chat-input {
+            flex: 1;
+            border: 1px solid var(--border-gray);
+            border-radius: var(--radius);
+            padding: 0.75rem;
+            font-size: var(--font-size-base);
+            resize: none;
+            min-height: 44px;
+            max-height: 150px;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        .chat-send-btn {
+            padding: 0.75rem 1.5rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius);
+            font-weight: var(--font-weight-medium);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+        }
+
+        .chat-send-btn:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
+
+        .chat-send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .chat-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .chat-empty svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 0.25rem;
+            padding: 1rem;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--text-muted);
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+
+        .member-info-banner {
+            background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-lg);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .member-info-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .member-info-text h3 {
+            font-size: var(--font-size-lg);
+            font-weight: var(--font-weight-semibold);
+            margin-bottom: 0.25rem;
+        }
+
+        .member-info-text p {
+            font-size: var(--font-size-sm);
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                        <path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                </div>
+                <div class="sidebar-title">
+                  <div class="sidebar-title-main">PT Manager</div>
+                  <div class="sidebar-title-sub">이윤창 트레이너의</div>
+                  <div class="sidebar-title-sub">맞춤형 회원 관리 시스템</div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="member-management.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87m-4-12a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    회원 관리
+                </a>
+                <a href="index.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                        <path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                    운동일지 작성
+                </a>
+                <a href="workout-history.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    운동일지 조회
+                </a>
+                <a href="ai-consultation.html" class="nav-item active">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    AI 상담
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+              © 2025 이윤창 트레이너의 PT Manager
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <h1 class="page-title">AI 상담</h1>
+                    <p class="page-description">회원 정보를 기반으로 AI와 상담하세요</p>
+                </div>
+
+                <!-- Member Selection -->
+                <div class="card" style="margin-bottom: 1.5rem;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label">회원 선택 <span class="required">*</span></label>
+                        <select id="memberSelect" class="form-select">
+                            <option value="">회원을 선택하세요</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Member Info Banner -->
+                <div id="memberInfoBanner" style="display: none;">
+                    <div class="member-info-banner">
+                        <div class="member-info-content">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <div class="member-info-text">
+                                <h3 id="memberName">-</h3>
+                                <p id="memberDetail">회원 정보를 불러오는 중...</p>
+                            </div>
+                        </div>
+                        <button id="changeMemberBtn" class="btn btn-secondary" style="background-color: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white;">
+                            회원 변경
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chat Container -->
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="chat-empty">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <p>회원을 선택하면</p>
+                            <p>AI 상담을 시작할 수 있습니다</p>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-container">
+                        <textarea
+                            id="chatInput"
+                            class="chat-input"
+                            placeholder="메시지를 입력하세요..."
+                            rows="1"
+                            disabled></textarea>
+                        <button id="sendBtn" class="chat-send-btn" disabled>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                            전송
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Help Button -->
+        <button class="help-button" title="도움말">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+        </button>
+    </div>
+
+    <script>
+        // Config
+        const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL;
+        const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY;
+        const OPENAI_API_KEY = window.APP_CONFIG?.OPENAI_API_KEY;
+
+        let supabase = null;
+        let selectedMember = null;
+        let conversationHistory = [];
+
+        // Initialize Supabase
+        if (SUPABASE_URL && SUPABASE_ANON_KEY &&
+            SUPABASE_URL !== 'YOUR_SUPABASE_URL' &&
+            SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            loadMembers();
+        } else {
+            console.warn('Supabase configuration required');
+        }
+
+        // DOM elements
+        const memberSelect = document.getElementById('memberSelect');
+        const memberInfoBanner = document.getElementById('memberInfoBanner');
+        const memberName = document.getElementById('memberName');
+        const memberDetail = document.getElementById('memberDetail');
+        const changeMemberBtn = document.getElementById('changeMemberBtn');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        // Load members
+        async function loadMembers() {
+            if (!supabase) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('members')
+                    .select('*')
+                    .order('name', { ascending: true });
+
+                if (error) throw error;
+
+                memberSelect.innerHTML = '<option value="">회원을 선택하세요</option>';
+                data.forEach(member => {
+                    const option = document.createElement('option');
+                    option.value = member.id;
+                    option.textContent = member.name;
+                    memberSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading members:', error);
+            }
+        }
+
+        // Member selection
+        memberSelect.addEventListener('change', async function() {
+            const memberId = this.value;
+            if (!memberId) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('members')
+                    .select('*')
+                    .eq('id', memberId)
+                    .single();
+
+                if (error) throw error;
+
+                selectedMember = data;
+                showMemberInfo(data);
+                initializeChat();
+            } catch (error) {
+                console.error('Error loading member:', error);
+                alert('회원 정보를 불러오는데 실패했습니다.');
+            }
+        });
+
+        // Show member info
+        function showMemberInfo(member) {
+            memberName.textContent = member.name;
+
+            let details = [];
+            if (member.age) details.push(`${member.age}세`);
+            if (member.gender === 'male') details.push('남성');
+            if (member.gender === 'female') details.push('여성');
+            if (member.goal) details.push(member.goal);
+
+            memberDetail.textContent = details.join(' · ') || '회원 정보';
+
+            memberInfoBanner.style.display = 'block';
+            memberSelect.parentElement.parentElement.style.display = 'none';
+        }
+
+        // Change member
+        changeMemberBtn.addEventListener('click', () => {
+            memberInfoBanner.style.display = 'none';
+            memberSelect.parentElement.parentElement.style.display = 'block';
+            memberSelect.value = '';
+            selectedMember = null;
+            conversationHistory = [];
+            chatMessages.innerHTML = `
+                <div class="chat-empty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <p>회원을 선택하면</p>
+                    <p>AI 상담을 시작할 수 있습니다</p>
+                </div>
+            `;
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+        });
+
+        // Initialize chat
+        function initializeChat() {
+            conversationHistory = [];
+            chatMessages.innerHTML = '';
+            chatInput.disabled = false;
+            sendBtn.disabled = false;
+            chatInput.focus();
+
+            // Add welcome message
+            addMessage('ai', `안녕하세요! 저는 이윤창 트레이너의 AI 어시스턴트 입니다. ${selectedMember.name}님의 운동일지와 정보를 바탕으로 상담을 도와드리겠습니다. 궁금하신 점이나 상담하고 싶은 내용을 말씀해주세요.`);
+        }
+
+        // Add message to chat
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${role}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = `chat-avatar ${role}`;
+            avatar.textContent = role === 'ai' ? '🤖' : '👤';
+
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble';
+            bubble.textContent = content;
+
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(bubble);
+
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Show typing indicator
+        function showTyping() {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'chat-message ai';
+            typingDiv.id = 'typing-indicator';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'chat-avatar ai';
+            avatar.textContent = '🤖';
+
+            const typingIndicator = document.createElement('div');
+            typingIndicator.className = 'typing-indicator';
+            typingIndicator.innerHTML = `
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            `;
+
+            typingDiv.appendChild(avatar);
+            typingDiv.appendChild(typingIndicator);
+            chatMessages.appendChild(typingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Remove typing indicator
+        function removeTyping() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        // Send message
+        async function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message || !selectedMember) return;
+
+            // Add user message
+            addMessage('user', message);
+            chatInput.value = '';
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // Show typing
+            showTyping();
+
+            try {
+                // Get member context
+                const memberContext = await getMemberContext();
+
+                // Call OpenAI API
+                const response = await callOpenAI(message, memberContext);
+
+                // Remove typing and add AI response
+                removeTyping();
+                addMessage('ai', response);
+
+            } catch (error) {
+                console.error('Error:', error);
+                removeTyping();
+                addMessage('ai', '죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.');
+            } finally {
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        // Get member context
+        async function getMemberContext() {
+            let context = `# 회원 기본 정보\n`;
+            context += `이름: ${selectedMember.name}\n`;
+            if (selectedMember.age) context += `나이: ${selectedMember.age}세\n`;
+            if (selectedMember.gender) context += `성별: ${selectedMember.gender === 'male' ? '남성' : '여성'}\n`;
+
+            // 체성분 정보
+            if (selectedMember.height || selectedMember.weight || selectedMember.body_fat_percentage) {
+                context += `\n## 체성분 정보\n`;
+                if (selectedMember.height) context += `키: ${selectedMember.height}cm\n`;
+                if (selectedMember.weight) context += `체중: ${selectedMember.weight}kg\n`;
+                if (selectedMember.body_fat_percentage) context += `체지방률: ${selectedMember.body_fat_percentage}%\n`;
+                if (selectedMember.body_fat_mass) context += `체지방량: ${selectedMember.body_fat_mass}kg\n`;
+                if (selectedMember.skeletal_muscle_mass) context += `골격근량: ${selectedMember.skeletal_muscle_mass}kg\n`;
+                if (selectedMember.basal_metabolic_rate) context += `기초대사량: ${selectedMember.basal_metabolic_rate}kcal\n`;
+            }
+
+            // 운동 목표
+            if (selectedMember.goal) {
+                context += `\n## 운동 목표\n${selectedMember.goal}\n`;
+            }
+
+            // 특이사항 (매우 중요!)
+            if (selectedMember.notes) {
+                context += `\n## ⚠️ 특이사항 (반드시 고려해야 함)\n${selectedMember.notes}\n`;
+            }
+
+            // Get detailed workout logs with exercises
+            try {
+                const { data: logs, error: logsError } = await supabase
+                    .from('workout_logs')
+                    .select('id, log_date, status_check, comment')
+                    .eq('member_id', selectedMember.id)
+                    .order('log_date', { ascending: false })
+                    .limit(10);
+
+                if (!logsError && logs && logs.length > 0) {
+                    context += `\n## 최근 운동일지 (최근 10개)\n`;
+
+                    for (const log of logs) {
+                        context += `\n### ${log.log_date}\n`;
+
+                        if (log.status_check) {
+                            context += `컨디션/특이사항: ${log.status_check}\n`;
+                        }
+
+                        // Get exercises for this workout log
+                        const { data: exercises, error: exError } = await supabase
+                            .from('exercises')
+                            .select('exercise_name, exercise_order, exercise_sets(*)')
+                            .eq('workout_log_id', log.id)
+                            .order('exercise_order');
+
+                        if (!exError && exercises && exercises.length > 0) {
+                            context += `운동 내역:\n`;
+                            exercises.forEach(exercise => {
+                                context += `  ${exercise.exercise_order}. ${exercise.exercise_name}\n`;
+                                if (exercise.exercise_sets && exercise.exercise_sets.length > 0) {
+                                    const sortedSets = exercise.exercise_sets.sort((a, b) => a.set_number - b.set_number);
+                                    sortedSets.forEach(set => {
+                                        context += `     ${set.set_number}세트: ${set.weight}kg x ${set.reps}회\n`;
+                                    });
+                                }
+                            });
+                        }
+
+                        if (log.comment) {
+                            context += `코멘트: ${log.comment}\n`;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading workout logs:', error);
+            }
+
+            return context;
+        }
+
+        // Call OpenAI API
+        async function callOpenAI(message, memberContext) {
+            if (!OPENAI_API_KEY || OPENAI_API_KEY === 'YOUR_OPENAI_API_KEY') {
+                return 'OpenAI API 키가 설정되지 않았습니다. config.js 파일에서 OPENAI_API_KEY를 설정해주세요.';
+            }
+
+            const systemPrompt = `${window.AI_SYSTEM_RULES}
+
+# 현재 상담 중인 회원 데이터
+
+${memberContext}
+
+# 중요 지침
+- 반드시 "${selectedMember.name}님의 정보와 운동일지 데이터를 기반으로 확인 결과," 로 답변을 시작하세요
+- 제공된 데이터에 없는 내용은 답변하지 마세요
+- 모든 조언은 운동생리학/스포츠의학 학술 자료 기반으로 하고 출처를 명시하세요
+- 특이사항 필드의 내용을 반드시 고려하세요
+- 답변이 불가능한 경우 솔직하게 "답변할 수 없는 질문입니다"라고 하세요`;
+
+            const messages = [
+                {
+                    role: 'system',
+                    content: systemPrompt
+                },
+                ...conversationHistory,
+                { role: 'user', content: message }
+            ];
+
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o',
+                    messages: messages,
+                    temperature: 0.3,
+                    max_tokens: 1500
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('OpenAI API Error:', errorData);
+                throw new Error(`OpenAI API 호출 실패: ${errorData.error?.message || '알 수 없는 오류'}`);
+            }
+
+            const data = await response.json();
+            const aiResponse = data.choices[0].message.content;
+
+            // Update conversation history
+            conversationHistory.push({ role: 'user', content: message });
+            conversationHistory.push({ role: 'assistant', content: aiResponse });
+
+            // Keep only last 10 messages
+            if (conversationHistory.length > 10) {
+                conversationHistory = conversationHistory.slice(-10);
+            }
+
+            return aiResponse;
+        }
+
+        // Event listeners
+        sendBtn.addEventListener('click', sendMessage);
+
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Auto-resize textarea
+        chatInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+        });
+    </script>
+</body>
+</html>
