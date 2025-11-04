@@ -227,5 +227,63 @@ https://youtube.com/shorts/..."></textarea>
     </div>
 
     <script src="workout-log.js"></script>
+
+    <!-- Help Button (Contact Info) -->
+    <button class="help-button" id="helpButton" aria-label="연락처 보기">?</button>
+
+    <div class="help-popup" id="helpPopup">
+        <div class="help-popup-header">
+            <div class="help-popup-icon">이</div>
+            <div class="help-popup-title">
+                <h3>이윤창 트레이너</h3>
+                <p>문의하기</p>
+            </div>
+        </div>
+
+        <div class="help-popup-content">
+            <a href="tel:010-5253-0489" class="help-contact-item">
+                <div class="help-contact-icon phone">📞</div>
+                <div class="help-contact-info">
+                    <div class="help-contact-label">Phone</div>
+                    <div class="help-contact-value">010-5253-0489</div>
+                </div>
+            </a>
+
+            <a href="https://www.instagram.com/tr_helper_lee?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" class="help-contact-item">
+                <div class="help-contact-icon instagram">📷</div>
+                <div class="help-contact-info">
+                    <div class="help-contact-label">Instagram</div>
+                    <div class="help-contact-value">@tr_helper_lee</div>
+                </div>
+            </a>
+        </div>
+
+        <div class="help-popup-footer">
+            언제든지 편하게 연락주세요 😊
+        </div>
+    </div>
+
+    <script>
+        // Help button toggle
+        const helpButton = document.getElementById('helpButton');
+        const helpPopup = document.getElementById('helpPopup');
+
+        helpButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            helpPopup.classList.toggle('active');
+        });
+
+        // Close popup when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!helpPopup.contains(e.target) && !helpButton.contains(e.target)) {
+                helpPopup.classList.remove('active');
+            }
+        });
+
+        // Prevent popup click from closing
+        helpPopup.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    </script>
 </body>
 </html>

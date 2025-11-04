@@ -919,3 +919,169 @@ body {
   margin-bottom: 0.5rem;
   font-size: var(--font-size-sm);
 }
+
+/* ========================================
+   Help Button (Contact Info)
+   ======================================== */
+
+.help-button {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  transition: all 0.2s ease;
+  z-index: 999;
+}
+
+.help-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.help-button:active {
+  transform: scale(0.95);
+}
+
+.help-popup {
+  position: fixed;
+  bottom: 6rem;
+  right: 2rem;
+  width: 300px;
+  background: var(--bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 1.5rem;
+  z-index: 998;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+.help-popup.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.help-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.help-popup-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.help-popup-title {
+  flex: 1;
+}
+
+.help-popup-title h3 {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.help-popup-title p {
+  margin: 0.25rem 0 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.help-popup-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.help-contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  background: var(--bg-gray);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.help-contact-item:hover {
+  background: var(--border-light);
+  transform: translateX(2px);
+}
+
+.help-contact-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.help-contact-icon.phone {
+  background: #10B981;
+  color: white;
+}
+
+.help-contact-icon.instagram {
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  color: white;
+}
+
+.help-contact-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.help-contact-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  margin-bottom: 0.125rem;
+}
+
+.help-contact-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.help-popup-footer {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-light);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
