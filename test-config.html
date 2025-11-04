@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Config 테스트</title>
+    <script src="config.js"></script>
+</head>
+<body>
+    <h1>Config 로드 테스트</h1>
+    <pre id="result"></pre>
+
+    <script>
+        const resultEl = document.getElementById('result');
+
+        setTimeout(() => {
+            const result = {
+                'window.APP_CONFIG 존재': !!window.APP_CONFIG,
+                'SUPABASE_URL': window.APP_CONFIG?.SUPABASE_URL || 'NOT FOUND',
+                'SUPABASE_ANON_KEY': window.APP_CONFIG?.SUPABASE_ANON_KEY ? '설정됨 (길이: ' + window.APP_CONFIG.SUPABASE_ANON_KEY.length + ')' : 'NOT FOUND',
+                'OPENAI_API_KEY': window.APP_CONFIG?.OPENAI_API_KEY ? '설정됨 (길이: ' + window.APP_CONFIG.OPENAI_API_KEY.length + ')' : 'NOT FOUND',
+            };
+
+            resultEl.textContent = JSON.stringify(result, null, 2);
+
+            // 조건문 체크
+            const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL;
+            const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY;
+
+            console.log('=== 조건문 체크 ===');
+            console.log('SUPABASE_URL:', SUPABASE_URL);
+            console.log('SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY);
+            console.log('SUPABASE_URL 존재:', !!SUPABASE_URL);
+            console.log('SUPABASE_ANON_KEY 존재:', !!SUPABASE_ANON_KEY);
+            console.log('YOUR_SUPABASE_URL과 다름:', SUPABASE_URL !== 'YOUR_SUPABASE_URL');
+            console.log('YOUR_SUPABASE_ANON_KEY와 다름:', SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY');
+
+            if (SUPABASE_URL && SUPABASE_ANON_KEY &&
+                SUPABASE_URL !== 'YOUR_SUPABASE_URL' &&
+                SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
+                console.log('✅ 조건문 통과 - Supabase 초기화 가능');
+            } else {
+                console.log('❌ 조건문 실패 - else로 빠짐');
+            }
+        }, 100);
+    </script>
+</body>
+</html>
