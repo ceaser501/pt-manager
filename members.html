@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이윤창 트레이너의 PT Manager</title>
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="design-system.css">
+    <style>
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                        <path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                </div>
+                <div class="sidebar-title">
+                  <div class="sidebar-title-main">PT Manager</div>
+                  <div class="sidebar-title-sub">이윤창 트레이너의</div>
+                  <div class="sidebar-title-sub">맞춤형 회원 관리 시스템</div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    트레이너 소개
+                </a>
+                <a href="members.html" class="nav-item active">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87m-4-12a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    회원 관리
+                </a>
+                <a href="workout-entry.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                        <path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                    운동일지 작성
+                </a>
+                <a href="workout-history.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    운동일지 조회
+                </a>
+                <a href="ai-consultation.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    AI 상담
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+              © 2025 이윤창 트레이너의 PT Manager
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-wrapper">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <h1 class="page-title">회원 관리</h1>
+                    <p class="page-description">PT 회원 정보를 관리합니다</p>
+                </div>
+
+                <!-- Action Bar -->
+                <div class="action-bar">
+                    <div class="search-container">
+                        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="form-input search-input"
+                            placeholder="회원 이름으로 검색...">
+                    </div>
+                    <button id="addMemberBtn" class="btn btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        회원 등록
+                    </button>
+                </div>
+
+                <!-- Member Cards -->
+                <div id="memberList" class="member-cards">
+                    <!-- Members will be loaded here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="memberModal" class="modal-backdrop hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">새 회원 등록</h2>
+                <button class="modal-close" id="closeModal">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <form id="memberForm">
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">이름 <span class="required">*</span></label>
+                            <input type="text" id="name" name="name" class="form-input" placeholder="홍길동" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">나이</label>
+                            <input type="number" id="age" name="age" class="form-input" placeholder="30">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">성별</label>
+                            <select id="gender" name="gender" class="form-select">
+                                <option value="">선택하세요</option>
+                                <option value="male">남성</option>
+                                <option value="female">여성</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">연락처</label>
+                            <input type="tel" id="phone" name="phone" class="form-input" placeholder="010-1234-5678">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">운동 목표</label>
+                        <input type="text" id="goal" name="goal" class="form-input" placeholder="체중 감량, 근력 증가 등">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">특이사항</label>
+                        <textarea id="notes" name="notes" class="form-textarea" placeholder="부상 이력, 건강 상태, 주의사항 등"></textarea>
+                    </div>
+
+                    <!-- 체성분 정보 섹션 -->
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-light);">
+                        <h4 style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); margin-bottom: 1rem; color: var(--text-primary);">체성분 정보 (선택사항)</h4>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">키 (cm)</label>
+                                <input type="number" step="0.1" id="height" name="height" class="form-input" placeholder="175.5">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">체중 (kg)</label>
+                                <input type="number" step="0.1" id="weight" name="weight" class="form-input" placeholder="75.0">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">골격근량 (kg)</label>
+                                <input type="number" step="0.1" id="skeletal_muscle_mass" name="skeletal_muscle_mass" class="form-input" placeholder="35.2">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">체지방량 (kg)</label>
+                                <input type="number" step="0.1" id="body_fat_mass" name="body_fat_mass" class="form-input" placeholder="15.5">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">체지방률 (%)</label>
+                                <input type="number" step="0.1" id="body_fat_percentage" name="body_fat_percentage" class="form-input" placeholder="20.6">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">복부지방률 (%)</label>
+                                <input type="number" step="0.01" id="abdominal_fat_percentage" name="abdominal_fat_percentage" class="form-input" placeholder="0.85">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">내장지방레벨</label>
+                                <input type="number" id="visceral_fat_level" name="visceral_fat_level" class="form-input" placeholder="8">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">체수분 (L or %)</label>
+                                <input type="number" step="0.1" id="body_water" name="body_water" class="form-input" placeholder="45.3">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">기초대사량 (kcal)</label>
+                                <input type="number" id="basal_metabolic_rate" name="basal_metabolic_rate" class="form-input" placeholder="1650">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">취소</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Config
+        const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL;
+        const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY;
+
+        let supabase = null;
+        let editingMemberId = null;
+        let allMembers = [];
+
+        // Debug logging
+        console.log('=== Supabase 초기화 디버깅 ===');
+        console.log('window.APP_CONFIG:', window.APP_CONFIG);
+        console.log('SUPABASE_URL:', SUPABASE_URL);
+        console.log('SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? '설정됨' : 'undefined');
+        console.log('window.supabase:', window.supabase);
+        console.log('조건 체크:');
+        console.log('  - SUPABASE_URL 존재:', !!SUPABASE_URL);
+        console.log('  - SUPABASE_ANON_KEY 존재:', !!SUPABASE_ANON_KEY);
+        console.log('  - YOUR_SUPABASE_URL 아님:', SUPABASE_URL !== 'YOUR_SUPABASE_URL');
+        console.log('  - YOUR_SUPABASE_ANON_KEY 아님:', SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY');
+
+        // Initialize Supabase
+        if (SUPABASE_URL && SUPABASE_ANON_KEY &&
+            SUPABASE_URL !== 'YOUR_SUPABASE_URL' &&
+            SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
+
+            if (!window.supabase) {
+                console.error('❌ window.supabase가 로드되지 않았습니다!');
+                alert('Supabase 라이브러리가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
+            } else {
+                console.log('✅ Supabase 초기화 시작');
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Supabase 클라이언트 생성 완료');
+                loadMembers();
+            }
+        } else {
+            console.warn('❌ Supabase configuration required - else로 빠짐');
+            console.warn('설정을 확인해주세요.');
+        }
+
+        // DOM elements
+        const modal = document.getElementById('memberModal');
+        const addMemberBtn = document.getElementById('addMemberBtn');
+        const closeModalBtn = document.getElementById('closeModal');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const memberForm = document.getElementById('memberForm');
+        const modalTitle = document.getElementById('modalTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const searchInput = document.getElementById('searchInput');
+        const memberList = document.getElementById('memberList');
+
+        // Open modal
+        addMemberBtn.addEventListener('click', () => {
+            editingMemberId = null;
+            memberForm.reset();
+            modalTitle.textContent = '새 회원 등록';
+            submitBtn.textContent = '등록';
+            modal.classList.remove('hidden');
+        });
+
+        // Close modal
+        function closeModal() {
+            modal.classList.add('hidden');
+            memberForm.reset();
+            editingMemberId = null;
+        }
+
+        closeModalBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+
+        // Close modal on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Search
+        searchInput.addEventListener('input', () => {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const filtered = allMembers.filter(member =>
+                member.name.toLowerCase().includes(searchTerm)
+            );
+            renderMembers(filtered);
+        });
+
+        // Submit form
+        memberForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!supabase) {
+                alert('Supabase 연결이 필요합니다.');
+                return;
+            }
+
+            const formData = new FormData(memberForm);
+            const memberData = {};
+
+            // Integer fields
+            const integerFields = ['age', 'visceral_fat_level', 'basal_metabolic_rate'];
+            // Float fields (DECIMAL in DB)
+            const floatFields = ['height', 'weight', 'skeletal_muscle_mass', 'body_fat_mass',
+                                'body_fat_percentage', 'abdominal_fat_percentage', 'body_water'];
+
+            for (const [key, value] of formData.entries()) {
+                if (value.trim() !== '') {
+                    if (integerFields.includes(key)) {
+                        memberData[key] = parseInt(value);
+                    } else if (floatFields.includes(key)) {
+                        memberData[key] = parseFloat(value);
+                    } else {
+                        memberData[key] = value;
+                    }
+                }
+            }
+
+            submitBtn.disabled = true;
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = editingMemberId ? '수정 중...' : '등록 중...';
+
+            try {
+                if (editingMemberId) {
+                    const { error } = await supabase
+                        .from('members')
+                        .update(memberData)
+                        .eq('id', editingMemberId);
+
+                    if (error) throw error;
+                    alert('회원 정보가 수정되었습니다.');
+                } else {
+                    const { error } = await supabase
+                        .from('members')
+                        .insert([memberData]);
+
+                    if (error) throw error;
+                    alert('회원이 등록되었습니다.');
+                }
+
+                closeModal();
+                loadMembers();
+            } catch (error) {
+                console.error('Error:', error);
+                alert('저장에 실패했습니다: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        });
+
+        // Load members
+        async function loadMembers() {
+            if (!supabase) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('members')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                allMembers = data;
+                renderMembers(data);
+            } catch (error) {
+                console.error('Error loading members:', error);
+            }
+        }
+
+        // Render members
+        function renderMembers(members) {
+            if (members.length === 0) {
+                memberList.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 4rem; color: var(--text-muted);">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 1rem; opacity: 0.5;">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87m-4-12a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <p>${searchInput.value ? '검색 결과가 없습니다' : '등록된 회원이 없습니다'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            memberList.innerHTML = members.map(member => `
+                <div class="member-card">
+                    <div class="member-card-header">
+                        <div>
+                            <div class="member-name">${member.name}</div>
+                            <div class="member-meta">${member.age ? member.age + '세' : ''} · ${member.gender === 'male' ? '남성' : member.gender === 'female' ? '여성' : ''}</div>
+                        </div>
+                        <div class="member-card-actions">
+                            <button class="btn-icon btn-secondary" onclick="editMember(${member.id})" title="수정">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                            </button>
+                            <button class="btn-icon btn-danger" onclick="deleteMember(${member.id}, '${member.name}')" title="삭제">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    ${member.phone ? `
+                        <div class="member-info-item">
+                            <span class="member-info-label">연락처</span>
+                            <span class="member-info-value">${member.phone}</span>
+                        </div>
+                    ` : ''}
+                    ${member.goal ? `
+                        <div class="member-info-item">
+                            <span class="member-info-label">운동 목표</span>
+                            <span class="member-info-value">${member.goal}</span>
+                        </div>
+                    ` : ''}
+                    ${(member.height || member.weight || member.body_fat_percentage || member.skeletal_muscle_mass) ? `
+                        <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-light);">
+                            <div style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--text-muted); margin-bottom: 0.5rem;">체성분 정보</div>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; font-size: var(--font-size-sm);">
+                                ${member.height ? `<div><span style="color: var(--text-muted);">키:</span> ${member.height}cm</div>` : ''}
+                                ${member.weight ? `<div><span style="color: var(--text-muted);">체중:</span> ${member.weight}kg</div>` : ''}
+                                ${member.skeletal_muscle_mass ? `<div><span style="color: var(--text-muted);">골격근량:</span> ${member.skeletal_muscle_mass}kg</div>` : ''}
+                                ${member.body_fat_mass ? `<div><span style="color: var(--text-muted);">체지방량:</span> ${member.body_fat_mass}kg</div>` : ''}
+                                ${member.body_fat_percentage ? `<div><span style="color: var(--text-muted);">체지방률:</span> ${member.body_fat_percentage}%</div>` : ''}
+                                ${member.abdominal_fat_percentage ? `<div><span style="color: var(--text-muted);">복부지방률:</span> ${member.abdominal_fat_percentage}%</div>` : ''}
+                                ${member.visceral_fat_level ? `<div><span style="color: var(--text-muted);">내장지방:</span> ${member.visceral_fat_level}레벨</div>` : ''}
+                                ${member.body_water ? `<div><span style="color: var(--text-muted);">체수분:</span> ${member.body_water}L</div>` : ''}
+                                ${member.basal_metabolic_rate ? `<div><span style="color: var(--text-muted);">기초대사량:</span> ${member.basal_metabolic_rate}kcal</div>` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${member.notes ? `
+                        <div class="member-special-note">
+                            <div class="member-special-note-title">특이사항</div>
+                            <div class="member-special-note-content">${member.notes}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Edit member
+        async function editMember(memberId) {
+            if (!supabase) return;
+
+            try {
+                const { data, error } = await supabase
+                    .from('members')
+                    .select('*')
+                    .eq('id', memberId)
+                    .single();
+
+                if (error) throw error;
+
+                editingMemberId = memberId;
+                document.getElementById('name').value = data.name || '';
+                document.getElementById('age').value = data.age || '';
+                document.getElementById('gender').value = data.gender || '';
+                document.getElementById('phone').value = data.phone || '';
+                document.getElementById('goal').value = data.goal || '';
+                document.getElementById('notes').value = data.notes || '';
+
+                // 체성분 정보
+                document.getElementById('height').value = data.height || '';
+                document.getElementById('weight').value = data.weight || '';
+                document.getElementById('skeletal_muscle_mass').value = data.skeletal_muscle_mass || '';
+                document.getElementById('body_fat_mass').value = data.body_fat_mass || '';
+                document.getElementById('body_fat_percentage').value = data.body_fat_percentage || '';
+                document.getElementById('abdominal_fat_percentage').value = data.abdominal_fat_percentage || '';
+                document.getElementById('visceral_fat_level').value = data.visceral_fat_level || '';
+                document.getElementById('body_water').value = data.body_water || '';
+                document.getElementById('basal_metabolic_rate').value = data.basal_metabolic_rate || '';
+
+                modalTitle.textContent = '회원 정보 수정';
+                submitBtn.textContent = '수정';
+                modal.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading member:', error);
+                alert('회원 정보를 불러오는데 실패했습니다.');
+            }
+        }
+
+        // Delete member
+        async function deleteMember(memberId, memberName) {
+            if (!supabase) return;
+
+            if (!confirm(`${memberName} 회원을 삭제하시겠습니까?\n관련된 모든 운동일지도 함께 삭제됩니다.`)) {
+                return;
+            }
+
+            try {
+                const { error } = await supabase
+                    .from('members')
+                    .delete()
+                    .eq('id', memberId);
+
+                if (error) throw error;
+
+                alert('회원이 삭제되었습니다.');
+                loadMembers();
+            } catch (error) {
+                console.error('Error deleting member:', error);
+                alert('회원 삭제에 실패했습니다: ' + error.message);
+            }
+        }
+
+        // Make functions global
+        window.editMember = editMember;
+        window.deleteMember = deleteMember;
+    </script>
+
+    <!-- Help Button (Contact Info) -->
+    <button class="help-button" id="helpButton" aria-label="연락처 보기">문의하기</button>
+
+    <div class="help-popup" id="helpPopup">
+        <div class="help-popup-header">
+            <div class="help-popup-icon">이</div>
+            <div class="help-popup-title">
+                <h3>이윤창 트레이너</h3>
+                <p>문의하기</p>
+            </div>
+        </div>
+
+        <div class="help-popup-content">
+            <a href="tel:010-5253-0489" class="help-contact-item">
+                <div class="help-contact-icon phone">📞</div>
+                <div class="help-contact-info">
+                    <div class="help-contact-label">Phone</div>
+                    <div class="help-contact-value">010-5253-0489</div>
+                </div>
+            </a>
+
+            <a href="https://www.instagram.com/tr_helper_lee?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" class="help-contact-item">
+                <div class="help-contact-icon instagram">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                    </svg>
+                </div>
+                <div class="help-contact-info">
+                    <div class="help-contact-label">Instagram</div>
+                    <div class="help-contact-value">@tr_helper_lee</div>
+                </div>
+            </a>
+
+            <a href="https://blog.naver.com/earnest0319" target="_blank" rel="noopener noreferrer" class="help-contact-item">
+                <div class="help-contact-icon blog">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16.273 12.845L7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845z"/>
+                    </svg>
+                </div>
+                <div class="help-contact-info">
+                    <div class="help-contact-label">Naver Blog</div>
+                    <div class="help-contact-value">earnest0319</div>
+                </div>
+            </a>
+        </div>
+
+        <div class="help-popup-footer">
+            언제든지 편하게 연락주세요 😊
+        </div>
+    </div>
+
+    <script>
+        // Help button toggle
+        const helpButton = document.getElementById('helpButton');
+        const helpPopup = document.getElementById('helpPopup');
+
+        helpButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            helpPopup.classList.toggle('active');
+        });
+
+        // Close popup when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!helpPopup.contains(e.target) && !helpButton.contains(e.target)) {
+                helpPopup.classList.remove('active');
+            }
+        });
+
+        // Prevent popup click from closing
+        helpPopup.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    </script>
+</body>
+</html>

@@ -1067,3 +1067,165 @@ body {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
 }
+
+/* ========================================
+   Mobile Responsive Styles
+   ======================================== */
+
+@media (max-width: 768px) {
+  /* Sidebar - Hidden by default on mobile */
+  .sidebar {
+    position: fixed;
+    left: -280px;
+    top: 0;
+    height: 100vh;
+    width: 280px;
+    transition: left 0.3s ease;
+    z-index: 1000;
+  }
+
+  .sidebar.active {
+    left: 0;
+  }
+
+  /* Mobile Menu Button */
+  .mobile-menu-btn {
+    display: block;
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 999;
+    background: var(--primary);
+    color: white;
+    border: none;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Main content full width */
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    padding: 5rem 1rem 1rem 1rem;
+  }
+
+  .app-container {
+    flex-direction: column;
+  }
+
+  /* Page header */
+  .page-header {
+    padding: 1rem;
+  }
+
+  .page-title {
+    font-size: 1.5rem;
+  }
+
+  /* Cards */
+  .card {
+    padding: 1rem;
+  }
+
+  /* Form grid - single column */
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Help button - smaller on mobile */
+  .help-button {
+    bottom: 1rem;
+    right: 1rem;
+    padding: 0.625rem 1rem;
+    font-size: 13px;
+  }
+
+  /* Help popup - adjust position */
+  .help-popup {
+    right: 1rem;
+    bottom: 4.5rem;
+    width: calc(100vw - 2rem);
+    max-width: 300px;
+  }
+
+  /* Modal - full screen on mobile */
+  .modal {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+  }
+
+  /* Member cards - single column */
+  .member-cards {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Calendar - compact */
+  .calendar-grid {
+    gap: 0.25rem;
+  }
+
+  .calendar-day {
+    min-height: 60px;
+    font-size: var(--font-size-sm);
+  }
+
+  /* Exercise list */
+  .exercise-item {
+    padding: 0.75rem;
+  }
+
+  /* Action buttons stack vertically */
+  .action-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-group {
+    width: 100%;
+  }
+
+  .btn-group .btn {
+    flex: 1;
+  }
+}
+
+/* Mobile overlay for sidebar */
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+.mobile-overlay.active {
+  display: block;
+}
+
+/* Tablet adjustments */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .sidebar {
+    width: 220px;
+  }
+
+  .main-content {
+    margin-left: 220px;
+  }
+
+  .sidebar-title-main {
+    font-size: 1rem;
+  }
+
+  .sidebar-title-sub {
+    font-size: 0.7rem;
+  }
+}
