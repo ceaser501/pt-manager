@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>이윤창 트레이너의 PT Manager</title>
+    <link rel="stylesheet" href="design-system.css">
+    <script src="js/dark-mode.js"></script>
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link rel="stylesheet" href="design-system.css">
     <style>
         .form-grid {
             display: grid;
@@ -22,6 +23,24 @@
     </style>
 </head>
 <body>
+    <!-- Dark Mode Toggle -->
+    <button class="dark-mode-toggle" id="darkModeToggle" aria-label="다크모드 전환">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+    </button>
+
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -40,6 +59,15 @@
             </div>
 
             <nav class="sidebar-nav">
+                <a href="dashboard.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    대시보드
+                </a>
                 <a href="index.html" class="nav-item">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -61,6 +89,16 @@
                         <path d="M2 17l10 5 10-5M2 12l10 5 10-5"></path>
                     </svg>
                     운동일지 작성
+                </a>
+                <a href="workout-entry2.html" class="nav-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    운동일지 작성2
                 </a>
                 <a href="workout-history.html" class="nav-item">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -214,6 +252,31 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- 세션 관리 섹션 -->
+                    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-light);">
+                        <h4 style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); margin-bottom: 1rem; color: var(--text-primary);">PT 세션 관리</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">전체 세션 수</label>
+                                <input type="number" id="total_sessions" name="total_sessions" class="form-input" placeholder="30" min="0">
+                                <div style="font-size: var(--font-size-xs); color: var(--text-muted); margin-top: 0.25rem;">등록한 총 PT 횟수</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">잔여 세션 수</label>
+                                <input type="number" id="remaining_sessions" name="remaining_sessions" class="form-input" placeholder="30" min="0">
+                                <div style="font-size: var(--font-size-xs); color: var(--text-muted); margin-top: 0.25rem;">남은 PT 횟수</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">세션 시작일</label>
+                                <input type="date" id="session_start_date" name="session_start_date" class="form-input">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">세션 종료일</label>
+                                <input type="date" id="session_end_date" name="session_end_date" class="form-input">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="modal-footer">
@@ -323,7 +386,7 @@
             const memberData = {};
 
             // Integer fields
-            const integerFields = ['age', 'visceral_fat_level', 'basal_metabolic_rate'];
+            const integerFields = ['age', 'visceral_fat_level', 'basal_metabolic_rate', 'total_sessions', 'remaining_sessions'];
             // Float fields (DECIMAL in DB)
             const floatFields = ['height', 'weight', 'skeletal_muscle_mass', 'body_fat_mass',
                                 'body_fat_percentage', 'abdominal_fat_percentage', 'body_water'];
@@ -442,6 +505,18 @@
                             <span class="member-info-value">${member.goal}</span>
                         </div>
                     ` : ''}
+                    ${(member.total_sessions !== null && member.total_sessions !== undefined) || (member.remaining_sessions !== null && member.remaining_sessions !== undefined) ? `
+                        <div class="member-info-item">
+                            <span class="member-info-label">PT 세션</span>
+                            <span class="member-info-value">
+                                <strong style="color: ${member.remaining_sessions <= 3 && member.remaining_sessions > 0 ? '#f59e0b' : member.remaining_sessions === 0 ? '#dc3545' : 'var(--primary)'};">
+                                    ${member.remaining_sessions || 0}
+                                </strong>
+                                / ${member.total_sessions || 0} 회
+                                ${member.session_end_date ? `<span style="font-size: var(--font-size-xs); color: var(--text-muted); margin-left: 0.5rem;">(~${new Date(member.session_end_date).toLocaleDateString('ko-KR', {month: 'numeric', day: 'numeric'})})</span>` : ''}
+                            </span>
+                        </div>
+                    ` : ''}
                     ${(member.height || member.weight || member.body_fat_percentage || member.skeletal_muscle_mass) ? `
                         <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-light);">
                             <div style="font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--text-muted); margin-bottom: 0.5rem;">체성분 정보</div>
@@ -499,6 +574,12 @@
                 document.getElementById('visceral_fat_level').value = data.visceral_fat_level || '';
                 document.getElementById('body_water').value = data.body_water || '';
                 document.getElementById('basal_metabolic_rate').value = data.basal_metabolic_rate || '';
+
+                // 세션 정보
+                document.getElementById('total_sessions').value = data.total_sessions || '';
+                document.getElementById('remaining_sessions').value = data.remaining_sessions || '';
+                document.getElementById('session_start_date').value = data.session_start_date || '';
+                document.getElementById('session_end_date').value = data.session_end_date || '';
 
                 modalTitle.textContent = '회원 정보 수정';
                 submitBtn.textContent = '수정';
