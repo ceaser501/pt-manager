@@ -33,14 +33,21 @@ async function loadMembers() {
 
     try {
         const { data, error } = await supabase
-            .from('members')
-            .select('id, name')
-            .order('name', { ascending: true });
+            .from('member')
+            .select(`
+                member_id,
+                users!inner(user_id, name)
+            `)
+            .order('users(name)', { ascending: true });
 
         if (error) throw error;
 
-        allMembers = data;
-        renderMemberOptions(data);
+        // Map to match expected structure
+        allMembers = data.map(m => ({
+            id: m.member_id,
+            name: m.users.name
+        }));
+        renderMemberOptions(allMembers);
     } catch (error) {
         console.error('Error loading members:', error);
         alert('회원 목록을 불러오는데 실패했습니다: ' + error.message);
@@ -384,71 +391,92 @@ saveButton.addEventListener('click', async () => {
     saveButton.textContent = '저장 중...';
 
     try {
-        // 1. Insert workout_logs
-        const { data: workoutLog, error: logError } = await supabase
-            .from('workout_logs')
+        // Get trainer_id (assuming first trainer for now)
+        const { data: trainers } = await supabase
+            .from('trainer')
+            .select('trainer_id')
+            .limit(1);
+
+        if (!trainers || trainers.length === 0) {
+            alert('등록된 트레이너가 없습니다. 먼저 트레이너를 등록해주세요.');
+            saveButton.disabled = false;
+            saveButton.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                </svg>
+                운동일지 저장
+            `;
+            return;
+        }
+
+        const trainerId = trainers[0].trainer_id;
+
+        // 1. Create training session
+        const { data: trainingSession, error: sessionError } = await supabase
+            .from('training_sessions')
             .insert([{
-                member_id: parseInt(memberId),
-                log_date: logDate,
-                status_check: parsed.statusCheck || null,
-                comment: parsed.comment || null
+                member_id: memberId,
+                trainer_id: trainerId,
+                session_date: logDate,
+                session_start_time: '10:00:00',
+                session_end_time: '11:00:00',
+                session_status: 'completed',
+                session_notes: parsed.statusCheck || parsed.comment || null,
+                created_id: 'system',
+                updated_id: 'system'
             }])
             .select()
             .single();
 
-        if (logError) throw logError;
+        if (sessionError) throw sessionError;
 
-        const workoutLogId = workoutLog.id;
-
-        // 2. Insert exercises
+        // 2. Insert exercises as workout details
         if (parsed.exercises.length > 0) {
             for (const exercise of parsed.exercises) {
-                const { data: exerciseData, error: exerciseError } = await supabase
-                    .from('exercises')
-                    .insert([{
-                        workout_log_id: workoutLogId,
-                        exercise_name: exercise.name,
-                        exercise_order: exercise.order
-                    }])
-                    .select()
-                    .single();
-
-                if (exerciseError) throw exerciseError;
-
-                // 3. Insert exercise sets
+                // Get first set as representative values
                 if (exercise.sets.length > 0) {
-                    const sets = exercise.sets.map(set => ({
-                        exercise_id: exerciseData.id,
-                        set_number: set.setNumber,
-                        weight: set.weight,
-                        reps: set.reps
-                    }));
+                    const firstSet = exercise.sets[0];
 
-                    const { error: setsError } = await supabase
-                        .from('exercise_sets')
-                        .insert(sets);
+                    const { error: workoutError } = await supabase
+                        .from('training_session_workout')
+                        .insert([{
+                            session_id: trainingSession.session_id,
+                            category_name: '기타',
+                            category_code: 'OTH',
+                            exercise_name: exercise.name,
+                            sets: exercise.sets.length,
+                            reps: firstSet.reps,
+                            weight_kg: firstSet.weight,
+                            notes: null,
+                            created_id: 'system',
+                            updated_id: 'system'
+                        }]);
 
-                    if (setsError) throw setsError;
+                    if (workoutError) throw workoutError;
+                } else {
+                    // If no sets, just insert the exercise name
+                    const { error: workoutError } = await supabase
+                        .from('training_session_workout')
+                        .insert([{
+                            session_id: trainingSession.session_id,
+                            category_name: '기타',
+                            category_code: 'OTH',
+                            exercise_name: exercise.name,
+                            sets: 1,
+                            reps: 10,
+                            weight_kg: 0,
+                            notes: null,
+                            created_id: 'system',
+                            updated_id: 'system'
+                        }]);
+
+                    if (workoutError) throw workoutError;
                 }
             }
         }
 
-        // 4. Insert references
-        if (parsed.references.length > 0) {
-            const references = parsed.references.map((ref, index) => ({
-                workout_log_id: workoutLogId,
-                title: ref.title || '참고자료',
-                description: ref.description || null,
-                url: ref.url || null,
-                reference_order: index + 1
-            }));
-
-            const { error: refsError } = await supabase
-                .from('workout_references')
-                .insert(references);
-
-            if (refsError) throw refsError;
-        }
+        // Note: workout_references table is not in the new schema
+        // Reference data will be ignored
 
         alert('운동일지가 저장되었습니다!');
 

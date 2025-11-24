@@ -26,9 +26,12 @@ function setTodayDate() {
 async function loadMembers() {
     try {
         const { data: members, error } = await supabase
-            .from('members')
-            .select('id, name')
-            .order('name');
+            .from('member')
+            .select(`
+                member_id,
+                users!inner(user_id, name)
+            `)
+            .order('users(name)');
 
         if (error) throw error;
 
@@ -37,8 +40,8 @@ async function loadMembers() {
 
         members.forEach(member => {
             const option = document.createElement('option');
-            option.value = member.id;
-            option.textContent = member.name;
+            option.value = member.member_id;
+            option.textContent = member.users.name;
             memberSelect.appendChild(option);
         });
     } catch (error) {
@@ -276,77 +279,96 @@ async function saveWorkoutLog() {
     });
 
     try {
-        // Create workout log
-        const { data: workoutLog, error: logError } = await supabase
-            .from('workout_logs')
+        // Get trainer_id (assuming first trainer for now)
+        const { data: trainers } = await supabase
+            .from('trainer')
+            .select('trainer_id')
+            .limit(1);
+
+        if (!trainers || trainers.length === 0) {
+            alert('등록된 트레이너가 없습니다. 먼저 트레이너를 등록해주세요.');
+            return;
+        }
+
+        const trainerId = trainers[0].trainer_id;
+
+        // Create training session
+        // Set default time as 10:00 - 11:00
+        const { data: trainingSession, error: sessionError } = await supabase
+            .from('training_sessions')
             .insert([{
-                member_id: parseInt(memberId),
-                log_date: workoutDate,
-                status_check: statusCheck || null,
-                comment: comment || null
+                member_id: memberId,
+                trainer_id: trainerId,
+                session_date: workoutDate,
+                session_start_time: '10:00:00',
+                session_end_time: '11:00:00',
+                session_status: 'completed',
+                session_notes: statusCheck || null,
+                created_id: 'system',
+                updated_id: 'system'
             }])
             .select()
             .single();
 
-        if (logError) throw logError;
+        if (sessionError) throw sessionError;
 
-        // Insert exercises
+        // Insert exercises as workout details
         for (let i = 0; i < exercises.length; i++) {
             const exercise = exercises[i];
 
-            // Insert exercise
-            const { data: exerciseData, error: exerciseError } = await supabase
-                .from('exercises')
-                .insert([{
-                    workout_log_id: workoutLog.id,
-                    exercise_name: exercise.name,
-                    exercise_order: i + 1
-                }])
-                .select()
-                .single();
-
-            if (exerciseError) throw exerciseError;
-
-            // Parse sets and insert
+            // Parse sets and calculate total values
             if (exercise.sets) {
                 const setsList = exercise.sets.split(',').map(s => s.trim());
-                for (let j = 0; j < setsList.length; j++) {
-                    const setInfo = setsList[j];
-                    // Parse format like "15kg x 12" or "20 x 10"
-                    const match = setInfo.match(/(\d+(?:\.\d+)?)\s*(?:kg)?\s*x\s*(\d+)/i);
-                    if (match) {
-                        const weight = parseFloat(match[1]);
-                        const reps = parseInt(match[2]);
 
-                        const { error: setError } = await supabase
-                            .from('exercise_sets')
-                            .insert([{
-                                exercise_id: exerciseData.id,
-                                set_number: j + 1,
-                                weight: weight,
-                                reps: reps
-                            }]);
+                // Get first set's weight and reps as representative values
+                const firstSetMatch = setsList[0].match(/(\d+(?:\.\d+)?)\s*(?:kg)?\s*x\s*(\d+)/i);
 
-                        if (setError) throw setError;
-                    }
+                if (firstSetMatch) {
+                    const weight = parseFloat(firstSetMatch[1]);
+                    const reps = parseInt(firstSetMatch[2]);
+                    const sets = parseInt(exercise.count) || setsList.length;
+
+                    // Insert workout
+                    const { error: workoutError } = await supabase
+                        .from('training_session_workout')
+                        .insert([{
+                            session_id: trainingSession.session_id,
+                            category_name: '기타',
+                            category_code: 'OTH',
+                            exercise_name: exercise.name,
+                            sets: sets,
+                            reps: reps,
+                            weight_kg: weight,
+                            notes: exercise.note || comment || null,
+                            created_id: 'system',
+                            updated_id: 'system'
+                        }]);
+
+                    if (workoutError) throw workoutError;
                 }
+            } else {
+                // If no sets info, just insert the exercise name
+                const { error: workoutError } = await supabase
+                    .from('training_session_workout')
+                    .insert([{
+                        session_id: trainingSession.session_id,
+                        category_name: '기타',
+                        category_code: 'OTH',
+                        exercise_name: exercise.name,
+                        sets: parseInt(exercise.count) || 1,
+                        reps: 10,
+                        weight_kg: 0,
+                        notes: exercise.note || comment || null,
+                        created_id: 'system',
+                        updated_id: 'system'
+                    }]);
+
+                if (workoutError) throw workoutError;
             }
         }
 
-        // Insert references
-        for (let i = 0; i < references.length; i++) {
-            const ref = references[i];
-            const { error: refError } = await supabase
-                .from('workout_references')
-                .insert([{
-                    workout_log_id: workoutLog.id,
-                    title: ref.title,
-                    url: ref.url,
-                    reference_order: i + 1
-                }]);
-
-            if (refError) throw refError;
-        }
+        // Note: workout_references table is not in the new schema
+        // Reference data will be ignored
 
         // Success
         alert('운동일지가 저장되었습니다!');

@@ -48,7 +48,7 @@
         try {
             // Total members
             const { count: totalMembers } = await supabase
-                .from('members')
+                .from('member')
                 .select('*', { count: 'exact', head: true });
 
             document.getElementById('totalMembers').textContent = totalMembers || 0;
@@ -56,9 +56,9 @@
             // Today's schedule
             const today = getTodayDate();
             const { count: todayCount } = await supabase
-                .from('reservations')
+                .from('training_sessions')
                 .select('*', { count: 'exact', head: true })
-                .eq('reservation_date', today);
+                .eq('session_date', today);
 
             document.getElementById('todaySchedule').textContent = todayCount || 0;
 
@@ -67,10 +67,10 @@
             const lastDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
 
             const { count: monthlyCount } = await supabase
-                .from('reservations')
+                .from('training_sessions')
                 .select('*', { count: 'exact', head: true })
-                .gte('reservation_date', firstDayOfMonth)
-                .lte('reservation_date', lastDayOfMonth);
+                .gte('session_date', firstDayOfMonth)
+                .lte('session_date', lastDayOfMonth);
 
             document.getElementById('monthlySession').textContent = monthlyCount || 0;
 
@@ -147,15 +147,20 @@
 
         try {
             const { data, error } = await supabase
-                .from('reservations')
+                .from('training_sessions')
                 .select(`
                     *,
-                    members (name, remaining_sessions, total_sessions)
+                    member!inner(
+                        member_id,
+                        session_total_count,
+                        session_used_count,
+                        users!inner(name)
+                    )
                 `)
-                .gte('reservation_date', firstDay)
-                .lte('reservation_date', lastDay)
-                .order('reservation_date', { ascending: true })
-                .order('reservation_time', { ascending: true });
+                .gte('session_date', firstDay)
+                .lte('session_date', lastDay)
+                .order('session_date', { ascending: true })
+                .order('session_start_time', { ascending: true });
 
             if (error) {
                 console.error('Error fetching reservations:', error);
@@ -168,22 +173,22 @@
                 const memberSessionCounts = {};
 
                 if (memberIds.length > 0) {
-                    // Get all reservations for all members in one query
-                    const { data: allReservations } = await supabase
-                        .from('reservations')
-                        .select('id, member_id, reservation_date, reservation_time')
+                    // Get all sessions for all members in one query
+                    const { data: allSessions } = await supabase
+                        .from('training_sessions')
+                        .select('session_id, member_id, session_date, session_start_time')
                         .in('member_id', memberIds)
-                        .order('reservation_date', { ascending: true })
-                        .order('reservation_time', { ascending: true });
+                        .order('session_date', { ascending: true })
+                        .order('session_start_time', { ascending: true });
 
-                    // Group reservations by member_id
-                    const reservationsByMember = {};
-                    if (allReservations) {
-                        allReservations.forEach(res => {
-                            if (!reservationsByMember[res.member_id]) {
-                                reservationsByMember[res.member_id] = [];
+                    // Group sessions by member_id
+                    const sessionsByMember = {};
+                    if (allSessions) {
+                        allSessions.forEach(ses => {
+                            if (!sessionsByMember[ses.member_id]) {
+                                sessionsByMember[ses.member_id] = [];
                             }
-                            reservationsByMember[res.member_id].push(res);
+                            sessionsByMember[ses.member_id].push(ses);
                         });
                     }
 
@@ -192,10 +197,11 @@
                         const memberId = reservation.member_id;
 
                         if (!memberSessionCounts[memberId]) {
-                            const memberReservations = reservationsByMember[memberId] || [];
-                            const currentIndex = memberReservations.findIndex(r => r.id === reservation.id);
-                            const totalSessions = reservation.members.total_sessions;
-                            const remainingSessions = totalSessions - currentIndex;
+                            const memberSessions = sessionsByMember[memberId] || [];
+                            const currentIndex = memberSessions.findIndex(s => s.session_id === reservation.session_id);
+                            const totalSessions = reservation.member.session_total_count;
+                            const usedSessions = reservation.member.session_used_count;
+                            const remainingSessions = totalSessions - usedSessions;
 
                             memberSessionCounts[memberId] = {
                                 currentCount: remainingSessions,
@@ -251,19 +257,19 @@
                 const timeStr = `${String(hour).padStart(2, '0')}:00:00`;
 
                 const reservation = reservations.find(res =>
-                    res.reservation_date === dateStr &&
-                    res.reservation_time === timeStr
+                    res.session_date === dateStr &&
+                    res.session_start_time === timeStr
                 );
 
-                if (reservation && reservation.members) {
+                if (reservation && reservation.member) {
                     cell.classList.add('has-reservation');
                     const colorClass = getMemberColorClass(reservation.member_id);
                     cell.classList.add(colorClass);
 
-                    const remaining = reservation.calculated_remaining ?? reservation.members.remaining_sessions;
-                    const total = reservation.calculated_total ?? reservation.members.total_sessions;
+                    const remaining = reservation.calculated_remaining ?? (reservation.member.session_total_count - reservation.member.session_used_count);
+                    const total = reservation.calculated_total ?? reservation.member.session_total_count;
 
-                    cell.textContent = `${reservation.members.name} (${remaining}/${total})`;
+                    cell.textContent = `${reservation.member.users.name} (${remaining}/${total})`;
                     cell.style.cursor = 'pointer';
                     cell.addEventListener('click', () => handleReservationClick(reservation));
                 } else {
@@ -301,14 +307,35 @@
         }
 
         try {
+            // Get trainer_id (assuming first trainer for now)
+            const { data: trainers } = await supabase
+                .from('trainer')
+                .select('trainer_id')
+                .limit(1);
+
+            if (!trainers || trainers.length === 0) {
+                alert('등록된 트레이너가 없습니다. 먼저 트레이너를 등록해주세요.');
+                return;
+            }
+
+            const trainerId = trainers[0].trainer_id;
+
+            // Calculate end time (1 hour later)
+            const startHour = parseInt(timeStr.split(':')[0]);
+            const endTime = `${String(startHour + 1).padStart(2, '0')}:00:00`;
+
             const { data, error } = await supabase
-                .from('reservations')
+                .from('training_sessions')
                 .insert({
                     member_id: member.id,
-                    reservation_date: dateStr,
-                    reservation_time: timeStr,
-                    status: 'scheduled',
-                    notes: null
+                    trainer_id: trainerId,
+                    session_date: dateStr,
+                    session_start_time: timeStr,
+                    session_end_time: endTime,
+                    session_status: 'scheduled',
+                    session_notes: null,
+                    created_id: 'system',
+                    updated_id: 'system'
                 });
 
             if (error) {
@@ -328,10 +355,10 @@
 
     // Handle reservation click
     function handleReservationClick(reservation) {
-        const action = confirm(`${reservation.members.name}님의 예약입니다.\n\n취소하시겠습니까?`);
+        const action = confirm(`${reservation.member.users.name}님의 예약입니다.\n\n취소하시겠습니까?`);
 
         if (action) {
-            deleteReservation(reservation.id);
+            deleteReservation(reservation.session_id);
         }
     }
 
@@ -339,12 +366,23 @@
     async function getAllMembers() {
         try {
             const { data, error } = await supabase
-                .from('members')
-                .select('id, name, remaining_sessions, total_sessions')
-                .order('name', { ascending: true });
+                .from('member')
+                .select(`
+                    member_id,
+                    session_total_count,
+                    session_used_count,
+                    users!inner(user_id, name)
+                `)
+                .order('users(name)', { ascending: true });
 
             if (error) throw error;
-            return data;
+            // Map to match expected structure
+            return data.map(m => ({
+                id: m.member_id,
+                name: m.users.name,
+                remaining_sessions: m.session_total_count - m.session_used_count,
+                total_sessions: m.session_total_count
+            }));
         } catch (error) {
             console.error('Error fetching members:', error);
             return [];
@@ -352,12 +390,12 @@
     }
 
     // Delete reservation
-    async function deleteReservation(reservationId) {
+    async function deleteReservation(sessionId) {
         try {
             const { error } = await supabase
-                .from('reservations')
+                .from('training_sessions')
                 .delete()
-                .eq('id', reservationId);
+                .eq('session_id', sessionId);
 
             if (error) throw error;
 
@@ -366,7 +404,7 @@
             await loadStatistics();
             await loadTodaySchedule();
         } catch (error) {
-            console.error('Error deleting reservation:', error);
+            console.error('Error deleting session:', error);
             alert('예약 취소에 실패했습니다.');
         }
     }
@@ -386,21 +424,21 @@
         const totalDays = lastDay.getDate();
         const startingDayOfWeek = firstDay.getDay();
 
-        // Get reservations for the month
+        // Get sessions for the month
         const firstDayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
         const lastDayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(totalDays).padStart(2, '0')}`;
 
         const { data: reservations } = await supabase
-            .from('reservations')
-            .select('reservation_date')
-            .gte('reservation_date', firstDayStr)
-            .lte('reservation_date', lastDayStr);
+            .from('training_sessions')
+            .select('session_date')
+            .gte('session_date', firstDayStr)
+            .lte('session_date', lastDayStr);
 
-        // Count reservations per day
+        // Count sessions per day
         const reservationCounts = {};
         if (reservations) {
             reservations.forEach(res => {
-                const date = new Date(res.reservation_date).getDate();
+                const date = new Date(res.session_date).getDate();
                 reservationCounts[date] = (reservationCounts[date] || 0) + 1;
             });
         }
@@ -452,16 +490,16 @@
 
         try {
             const { data: reservations, error } = await supabase
-                .from('reservations')
+                .from('training_sessions')
                 .select(`
-                    id,
-                    reservation_time,
-                    notes,
-                    status,
-                    members (name)
+                    session_id,
+                    session_start_time,
+                    session_notes,
+                    session_status,
+                    member!inner(users!inner(name))
                 `)
-                .eq('reservation_date', today)
-                .order('reservation_time', { ascending: true });
+                .eq('session_date', today)
+                .order('session_start_time', { ascending: true });
 
             if (error) throw error;
 
@@ -480,24 +518,24 @@
                 return;
             }
 
-            // Find next upcoming reservation
+            // Find next upcoming session
             let nextUpcomingIndex = -1;
             const now = currentTime.getHours() * 60 + currentTime.getMinutes();
 
             for (let i = 0; i < reservations.length; i++) {
-                const [hours, minutes] = reservations[i].reservation_time.split(':');
-                const reservationMinutes = parseInt(hours) * 60 + parseInt(minutes);
+                const [hours, minutes] = reservations[i].session_start_time.split(':');
+                const sessionMinutes = parseInt(hours) * 60 + parseInt(minutes);
 
-                if (reservationMinutes > now) {
+                if (sessionMinutes > now) {
                     nextUpcomingIndex = i;
                     break;
                 }
             }
 
             scheduleList.innerHTML = reservations.map((reservation, index) => {
-                const [hours, minutes] = reservation.reservation_time.split(':');
-                const reservationMinutes = parseInt(hours) * 60 + parseInt(minutes);
-                const isCompleted = reservationMinutes < now;
+                const [hours, minutes] = reservation.session_start_time.split(':');
+                const sessionMinutes = parseInt(hours) * 60 + parseInt(minutes);
+                const isCompleted = sessionMinutes < now;
                 const isUpcoming = index === nextUpcomingIndex;
 
                 let itemClass = 'schedule-item';
@@ -517,12 +555,12 @@
                             ${hours}:${minutes}
                         </div>
                         <div class="schedule-member">
-                            ${reservation.members.name}
+                            ${reservation.member.users.name}
                             <span class="status-badge ${isCompleted ? 'completed' : 'scheduled'}">
                                 ${isCompleted ? '완료' : '예정'}
                             </span>
                         </div>
-                        ${reservation.notes ? `<div class="schedule-notes">${reservation.notes}</div>` : ''}
+                        ${reservation.session_notes ? `<div class="schedule-notes">${reservation.session_notes}</div>` : ''}
                     </div>
                 `;
             }).join('');
@@ -548,15 +586,25 @@
 
         try {
             const { data: members, error } = await supabase
-                .from('members')
-                .select('id, name, remaining_sessions, total_sessions, session_end_date')
-                .lt('remaining_sessions', 5)
-                .gt('remaining_sessions', 0)
-                .order('remaining_sessions', { ascending: true });
+                .from('member')
+                .select(`
+                    member_id,
+                    session_total_count,
+                    session_used_count,
+                    session_end_date,
+                    users!inner(name)
+                `)
+                .order('session_used_count', { ascending: false });
 
             if (error) throw error;
 
-            if (members && members.length > 0) {
+            // Filter members with less than 5 remaining sessions
+            const lowSessionMembers = members.filter(m => {
+                const remaining = m.session_total_count - m.session_used_count;
+                return remaining < 5 && remaining > 0;
+            });
+
+            if (lowSessionMembers && lowSessionMembers.length > 0) {
                 alertContainer.classList.remove('hidden');
                 alertContainer.innerHTML = `
                     <div class="alert-notification">
@@ -567,17 +615,18 @@
                                 <line x1="12" y1="17" x2="12.01" y2="17"></line>
                             </svg>
                             <span class="alert-notification-title">세션 부족 알림</span>
-                            <span class="alert-notification-count">${members.length}</span>
+                            <span class="alert-notification-count">${lowSessionMembers.length}</span>
                         </div>
                         <div class="alert-members">
-                            ${members.map(member => {
+                            ${lowSessionMembers.map(member => {
+                                const remaining = member.session_total_count - member.session_used_count;
                                 const endDateStr = member.session_end_date
                                     ? ` (~${new Date(member.session_end_date).toLocaleDateString('ko-KR', {month: 'numeric', day: 'numeric'})})`
                                     : '';
                                 return `
                                     <div class="alert-member-item">
-                                        <span class="alert-member-name">${member.name}${endDateStr}</span>
-                                        <span class="alert-member-sessions">${member.remaining_sessions}/${member.total_sessions}회</span>
+                                        <span class="alert-member-name">${member.users.name}${endDateStr}</span>
+                                        <span class="alert-member-sessions">${remaining}/${member.session_total_count}회</span>
                                     </div>
                                 `;
                             }).join('')}
@@ -593,53 +642,28 @@
     }
 
     // Load daily note
+    // Note: daily_notes table is not in the new schema
+    // This feature is temporarily disabled
     async function loadDailyNote() {
-        const today = getTodayDate();
         const reminderReadView = document.getElementById('reminderReadView');
         const reminderTextarea2 = document.getElementById('reminderTextarea2');
 
         if (!reminderReadView || !reminderTextarea2) return;
 
-        try {
-            const { data: note, error } = await supabase
-                .from('daily_notes')
-                .select('content')
-                .eq('note_date', today)
-                .single();
+        // Set placeholder text
+        reminderReadView.textContent = '일일 메모 기능은 준비 중입니다.';
+        reminderTextarea2.value = '';
+        reminderTextarea2.placeholder = '일일 메모 기능은 준비 중입니다.';
 
-            if (error && error.code !== 'PGRST116') throw error;
-
-            const content = note?.content || '';
-            reminderReadView.textContent = content;
-            reminderTextarea2.value = content;
-        } catch (error) {
-            console.error('Error loading daily note:', error);
-        }
+        // Disable textarea
+        reminderTextarea2.disabled = true;
     }
 
     // Save daily note
     async function saveDailyNote(content) {
-        const today = getTodayDate();
-
-        try {
-            const { error } = await supabase
-                .from('daily_notes')
-                .upsert({
-                    note_date: today,
-                    content: content
-                }, {
-                    onConflict: 'note_date'
-                });
-
-            if (error) throw error;
-
-            await loadDailyNote();
-            return true;
-        } catch (error) {
-            console.error('Error saving daily note:', error);
-            alert('메모 저장에 실패했습니다.');
-            return false;
-        }
+        // daily_notes table is not in the new schema
+        alert('일일 메모 기능은 준비 중입니다.');
+        return false;
     }
 
     // Setup reminder events
@@ -699,21 +723,21 @@
         // Get previous month info
         const prevMonthLastDay = new Date(miniYear, miniMonth, 0).getDate();
 
-        // Get reservations for the month
+        // Get sessions for the month
         const firstDayStr = `${miniYear}-${String(miniMonth + 1).padStart(2, '0')}-01`;
         const lastDayStr = `${miniYear}-${String(miniMonth + 1).padStart(2, '0')}-${String(totalDays).padStart(2, '0')}`;
 
         const { data: reservations } = await supabase
-            .from('reservations')
-            .select('reservation_date')
-            .gte('reservation_date', firstDayStr)
-            .lte('reservation_date', lastDayStr);
+            .from('training_sessions')
+            .select('session_date')
+            .gte('session_date', firstDayStr)
+            .lte('session_date', lastDayStr);
 
-        // Count reservations per day
+        // Count sessions per day
         const reservationDates = new Set();
         if (reservations) {
             reservations.forEach(res => {
-                reservationDates.add(res.reservation_date);
+                reservationDates.add(res.session_date);
             });
         }
 
@@ -799,14 +823,14 @@
 
         try {
             const { data: reservations, error } = await supabase
-                .from('reservations')
+                .from('training_sessions')
                 .select(`
-                    id,
-                    reservation_time,
-                    members (name)
+                    session_id,
+                    session_start_time,
+                    member!inner(users!inner(name))
                 `)
-                .eq('reservation_date', dateStr)
-                .order('reservation_time', { ascending: true });
+                .eq('session_date', dateStr)
+                .order('session_start_time', { ascending: true });
 
             if (error) throw error;
 
@@ -816,11 +840,11 @@
             }
 
             miniCalendarEvents.innerHTML = reservations.map(res => {
-                const [hours, minutes] = res.reservation_time.split(':');
+                const [hours, minutes] = res.session_start_time.split(':');
                 return `
                     <div class="mini-calendar-event">
                         <div class="mini-calendar-event-time">${hours}:${minutes}</div>
-                        <div class="mini-calendar-event-name">${res.members.name}</div>
+                        <div class="mini-calendar-event-name">${res.member.users.name}</div>
                     </div>
                 `;
             }).join('');
