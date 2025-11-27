@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>계정 찾기 - PT Manager</title>
+    <link rel="stylesheet" href="../css/design-system.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../../config/config.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 500px;
+            padding: 3rem 2.5rem;
+            margin: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border-light);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 1rem;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: -2px;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid var(--border-light);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .submit-button {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 1rem;
+        }
+
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .result-box {
+            display: none;
+            padding: 1.5rem;
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+
+        .result-box.show {
+            display: block;
+        }
+
+        .result-box.error {
+            background: #fef2f2;
+            border-color: #ef4444;
+        }
+
+        .result-title {
+            font-weight: 600;
+            color: #0c4a6e;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-box.error .result-title {
+            color: #991b1b;
+        }
+
+        .result-text {
+            color: #075985;
+            line-height: 1.6;
+        }
+
+        .result-box.error .result-text {
+            color: #991b1b;
+        }
+
+        .info-text {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg-gray);
+            border-radius: 8px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 2rem 1.5rem;
+                margin: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">계정 찾기</h1>
+            <p class="subtitle">아이디 또는 비밀번호를 찾으실 수 있습니다</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="findId">아이디 찾기</button>
+            <button class="tab" data-tab="findPassword">비밀번호 찾기</button>
+        </div>
+
+        <!-- 아이디 찾기 -->
+        <div class="tab-content active" id="findId">
+            <div class="result-box" id="findIdResult"></div>
+
+            <form id="findIdForm">
+                <div class="form-group">
+                    <label class="form-label" for="findIdName">이름</label>
+                    <input
+                        type="text"
+                        id="findIdName"
+                        class="form-input"
+                        placeholder="가입 시 등록한 이름"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="findIdEmail">이메일</label>
+                    <input
+                        type="email"
+                        id="findIdEmail"
+                        class="form-input"
+                        placeholder="가입 시 등록한 이메일"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="submit-button" id="findIdButton">
+                    아이디 찾기
+                </button>
+
+                <p class="info-text">
+                    회원가입 시 입력한 이름과 이메일로 아이디를 찾을 수 있습니다.
+                </p>
+            </form>
+        </div>
+
+        <!-- 비밀번호 찾기 -->
+        <div class="tab-content" id="findPassword">
+            <div class="result-box" id="findPasswordResult"></div>
+
+            <form id="findPasswordForm">
+                <div class="form-group">
+                    <label class="form-label" for="findPwUserId">아이디</label>
+                    <input
+                        type="text"
+                        id="findPwUserId"
+                        class="form-input"
+                        placeholder="아이디"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="findPwEmail">이메일</label>
+                    <input
+                        type="email"
+                        id="findPwEmail"
+                        class="form-input"
+                        placeholder="가입 시 등록한 이메일"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="submit-button" id="findPasswordButton">
+                    임시 비밀번호 발급
+                </button>
+
+                <p class="info-text">
+                    임시 비밀번호가 이메일로 발송됩니다.<br>
+                    (현재는 화면에 표시됩니다 - 실제 환경에서는 이메일 발송)
+                </p>
+            </form>
+        </div>
+
+        <a href="login.html" class="back-link">← 로그인으로 돌아가기</a>
+    </div>
+
+    <script src="../js/find-account.js"></script>
+</body>
+</html>
